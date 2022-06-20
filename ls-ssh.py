@@ -113,22 +113,28 @@ class Realm:
 @implementer(session.ISession, session.ISessionSetEnv)
 class Session:
     
-    def __init__(self, _ignored):
-        pass
+    def __init__(self, avatar):
+        self.avatar = avatar
 
     def execCommand(self, proto, cmd):
-        if cmd.decode("ascii") == "ls":
-            proto.write(b"some_file\n")
-            proto.write(b"another_file\n")
-        else:
-            proto.write((repr(line)+ ": command not found").encode("ascii"))
-        # Note: to properly close, there needs to be an ad-hoc fix to Twisted:
-        #
-        # def loseConnection(self):
-        #     if self.client and self.client.transport:
-        #         ...
-        # in twisted/conch/ssh/session.py
-        reactor.callLater(0, proto.processEnded)
+        try:
+            if cmd.decode("ascii") != "ls":
+                proto.write((repr(line)+ ": command not found").encode("ascii"))
+                return
+            if self.avatar.username == b"user":
+                files = ["some_file", "another_file"]
+            else:
+                files = ["more_file", "even_more_files"]
+            for fname in files:
+                proto.write(f"{fname}\n".encode("ascii"))
+        finally:
+            # Note: to properly close, there needs to be an ad-hoc fix to Twisted:
+            #
+            # def loseConnection(self):
+            #     if self.client and self.client.transport:
+            #         ...
+            # in twisted/conch/ssh/session.py
+            reactor.callLater(0, proto.processEnded)
 
     def closed(self):
         pass
@@ -147,7 +153,10 @@ components.registerAdapter(
 
 def make_portal():
     sshDB = SSHPublicKeyChecker(
-        InMemorySSHKeyDB({b"user": [keys.Key.fromFile(CLIENT_RSA_PUBLIC)]})
+        InMemorySSHKeyDB({
+            b"user": [keys.Key.fromFile(CLIENT_RSA_PUBLIC)],
+            b"user2": [keys.Key.fromFile(CLIENT_RSA_PUBLIC)],
+        })
     )
     return portal.Portal(Realm(), [sshDB])
 
