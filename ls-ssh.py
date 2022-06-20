@@ -122,15 +122,21 @@ class Session:
             proto.write(b"another_file\n")
         else:
             proto.write((repr(line)+ ": command not found").encode("ascii"))
-        proto.loseConnection()
-            
-    def setEnv(self, key, value):
-        pass
+        # Note: to properly close, there needs to be an ad-hoc fix to Twisted:
+        #
+        # def loseConnection(self):
+        #     if self.client and self.client.transport:
+        #         ...
+        # in twisted/conch/ssh/session.py
+        reactor.callLater(0, proto.processEnded)
 
+    def closed(self):
+        pass
+    
     def eofReceived(self):
         pass
 
-    def closed(self):
+    def setEnv(self, key, value):
         pass
 
 
